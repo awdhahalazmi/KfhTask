@@ -1,5 +1,7 @@
 package KfhTask1.Task1.controllers;
 
+import KfhTask1.Task1.bo.auth.AuthenticationResponse;
+import KfhTask1.Task1.bo.auth.LoginRequest;
 import KfhTask1.Task1.bo.auth.SignupRequest;
 import KfhTask1.Task1.service.auth.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,5 +18,10 @@ public class AuthController {
     public String signup(@RequestBody SignupRequest signupRequest) {
         authService.signup(signupRequest);
         return "User registered successfully!";
+    }
+
+    @PostMapping("/login")
+    public AuthenticationResponse login(@RequestBody LoginRequest loginRequest) {
+        return authService.login(loginRequest);
     }
 }

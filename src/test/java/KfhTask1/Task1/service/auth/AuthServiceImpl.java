@@ -11,7 +11,7 @@ import KfhTask1.Task1.repository.RoleRepository;
 import KfhTask1.Task1.repository.UserRepository;
 import KfhTask1.Task1.util.enums.Roles;
 import KfhTask1.Task1.util.exceptions.BodyGuardException;
-import KfhTask1.Task1.util.exceptions.UserNotFoundException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -21,26 +21,29 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthServiceImpl implements AuthService {
-    private final AuthenticationManager authenticationManager;
-    private final CustomUserDetailsService userDetailService;
-    private final JWTUtil jwtUtil;
-    private final BCryptPasswordEncoder bCryptPasswordEncoder;
-    private final RoleRepository roleRepository;
-    private final UserRepository userRepository;
 
-    public AuthServiceImpl(AuthenticationManager authenticationManager, CustomUserDetailsService userDetailService, JWTUtil jwtUtil, BCryptPasswordEncoder bCryptPasswordEncoder, RoleRepository roleRepository, UserRepository userRepository) {
-        this.authenticationManager = authenticationManager;
-        this.userDetailService = userDetailService;
-        this.jwtUtil = jwtUtil;
-        this.bCryptPasswordEncoder = bCryptPasswordEncoder;
-        this.roleRepository = roleRepository;
-        this.userRepository = userRepository;
-    }
+    @Autowired
+    private AuthenticationManager authenticationManager;
+
+    @Autowired
+    private CustomUserDetailsService userDetailsService;
+
+    @Autowired
+    private JWTUtil jwtUtil;
+
+    @Autowired
+    private BCryptPasswordEncoder bCryptPasswordEncoder;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     @Transactional
     @Override
-    public void signup(SignupRequest createSignupRequest) {
-        if (userRepository.findByUsername(createSignupRequest.getUsername()).isPresent()) {
+    public void signup(SignupRequest signupRequest) {
+        if (userRepository.findByUsername(signupRequest.getUsername()).isPresent()) {
             throw new BodyGuardException("Username is already taken");
         }
 
@@ -48,31 +51,31 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new BodyGuardException("No roles found"));
 
         UserEntity user = new UserEntity();
-        user.setUsername(createSignupRequest.getUsername().toLowerCase());
-        user.setPassword(bCryptPasswordEncoder.encode(createSignupRequest.getPassword()));
+        user.setUsername(signupRequest.getUsername().toLowerCase());
+        user.setPassword(bCryptPasswordEncoder.encode(signupRequest.getPassword()));
         user.setRole(roleEntity);
 
         userRepository.save(user);
     }
 
     @Override
-    public AuthenticationResponse login(LoginRequest createLoginRequest) {
-        requiredNonNull(createLoginRequest.getUsername(), "username");
-        requiredNonNull(createLoginRequest.getPassword(), "password");
+    public AuthenticationResponse login(LoginRequest loginRequest) {
+        requiredNonNull(loginRequest.getUsername(), "username");
+        requiredNonNull(loginRequest.getPassword(), "password");
 
-        String username = createLoginRequest.getUsername().toLowerCase();
-        String password = createLoginRequest.getPassword();
+        String username = loginRequest.getUsername().toLowerCase();
+        String password = loginRequest.getPassword();
 
-        authentication(username, password);
+        authenticate(username, password);
 
-        CustomUserDetails userDetails = userDetailService.loadUserByUsername(username);
-        String accessToken = jwtUtil.generateToken(userDetails);
+        CustomUserDetails userDetails = userDetailsService.loadUserByUsername(username);
+        String token = jwtUtil.generateToken(userDetails);
 
         AuthenticationResponse response = new AuthenticationResponse();
         response.setId(userDetails.getId());
         response.setUsername(userDetails.getUsername());
         response.setRole(userDetails.getRole());
-        response.setToken("Bearer " + accessToken);
+        response.setToken("Bearer " + token);
 
         return response;
     }
@@ -83,7 +86,7 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
-    private void authentication(String username, String password) {
+    private void authenticate(String username, String password) {
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
         } catch (BadCredentialsException e) {
